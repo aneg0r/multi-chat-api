@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Widget with n8n Backend</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .chat-container {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 500px;
+        }
+
+        .chat-header {
+            background-color: #4285f4;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 10px;
+            overflow-y: auto;
+            background-color: #f9f9f9;
+        }
+
+        .message {
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            border-radius: 18px;
+            max-width: 70%;
+            word-wrap: break-word;
+        }
+
+        .user-message {
+            background-color: #e1f5fe;
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
+        }
+
+        .bot-message {
+            background-color: #e8eaf6;
+            margin-right: auto;
+            border-bottom-left-radius: 4px;
+        }
+
+        .chat-input-container {
+            display: flex;
+            padding: 10px;
+            margin-top: 10px;
+            background-color: white;
+        }
+
+        #chat-input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            outline: none;
+        }
+
+        #send-button {
+            background-color: #4285f4;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            margin-left: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #send-button:hover {
+            background-color: #3367d6;
+        }
+
+        .typing-indicator {
+            display: none;
+            color: #666;
+            font-style: italic;
+            margin: 5px 0;
+        }
+
+        .timestamp {
+            font-size: 10px;
+            color: #999;
+            margin-top: 4px;
+            display: block;
+        }
+
+        .typing-indicator {
+            display: none;
+            margin: 10px 0 0 20px;
+        }
+
+        .typing-indicator span {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background-color: #4285f4;
+            border-radius: 50%;
+            margin-right: 5px;
+            animation: bounce 1.5s infinite;
+        }
+
+        .typing-indicator span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-indicator span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes bounce {
+
+            0%,
+            60%,
+            100% {
+                transform: translateY(0);
+                opacity: 0.6;
+                width: 8px;
+                height: 8px;
+            }
+
+            30% {
+                transform: translateY(-5px);
+                opacity: 1;
+                width: 10px;
+                height: 10px;
+            }
+        }
+    </style>
+</head>
+
+<body >
+    <div id="all_chats" style="display: flex; width:99%">
+    <div class="chat-container" style="width:30%">
+        <div class="chat-header" id="title1">Ask OpenAI</div>
+        <div class="chat-messages" id="chat-messages">
+            <div class="message bot-message">Hello! Can I help you?</div>
+        </div>
+        <div class="typing-indicator" id="typing-indicator">
+            <span></span> <span></span> <span></span>
+        </div>
+    </div>
+
+    <div style="width: 10px;"></div>
+
+    <div class="chat-container" style="width:30%">
+        <div class="chat-header" id="title2">Ask OpenAI o3mini</div>
+        <div class="chat-messages" id="chat-messages2">
+            <div class="message bot-message">Hello! Can I help you?</div>
+        </div>
+        <div class="typing-indicator" id="typing-indicator2">
+            <span></span> <span></span> <span></span>
+        </div>
+    </div>
+    
+    <div style="width: 10px;"></div>
+    <div class="chat-container" style="width:30%">
+        <div class="chat-header" id="title3">Ask Mistral</div>
+        <div class="chat-messages" id="chat-messages3">
+            <div class="message bot-message">Hello! Can I help you?</div>
+        </div>
+        <div class="typing-indicator" id="typing-indicator3">
+            <span></span> <span></span> <span></span>
+        </div>
+    </div>
+    </div>
+
+    <div class="chat-input-container">
+        <input type="text" id="chat-input" placeholder="Type your message here..." autofocus>
+        <button id="send-button">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"></line>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+        </button>
+    </div>
+    <br>
+    <em style="opacity:0.8;">The files needs a credential.json with open_api key and mistral_api_key.<br/>
+        As the aim is to compare precisely the output from different models, the context is just the question (not the previous answers)</em>
+
+    
+
+    <script>
+        
+            const chatMessages = document.getElementById('chat-messages');
+            const chatInput1 = document.getElementById('chat-input');
+            const sendButton1 = document.getElementById('send-button');
+            const typingIndicator = document.getElementById('typing-indicator');
+
+            const chatMessages2 = document.getElementById('chat-messages2');
+            const chatInput2 = document.getElementById('chat-input2');
+            const sendButton2 = document.getElementById('send-button2');
+            const typingIndicator2 = document.getElementById('typing-indicator2');
+
+            const chatMessages3 = document.getElementById('chat-messages3');
+            const chatInput3 = document.getElementById('chat-input3');
+            const typingIndicator3 = document.getElementById('typing-indicator3');
+
+            const chatInput = document.getElementById('chat-input');
+            const sendButton = document.getElementById('send-button');
+
+            function addMessage(text, isUser, timestamp = null) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
+                messageDiv.textContent = text;
+
+                // Add timestamp if available
+                if (timestamp) {
+                    const timeSpan = document.createElement('span');
+                    timeSpan.className = 'timestamp';
+                    timeSpan.textContent = formatDateTime(timestamp);
+                    messageDiv.appendChild(timeSpan);
+                }
+
+                chatMessages.appendChild(messageDiv);
+
+                // Scroll to bottom
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+
+            //The Javascript architecture is a little clumsy for a first commit.
+            function addMessage2(text, isUser, timestamp = null) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
+                messageDiv.textContent = text;
+                chatMessages2.appendChild(messageDiv);
+
+                // Scroll to bottom
+                chatMessages2.scrollTop = chatMessages.scrollHeight;
+            }
+            function addMessage3(text, isUser, timestamp = null) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
+                messageDiv.textContent = text;
+
+                
+
+                chatMessages3.appendChild(messageDiv);
+
+                // Scroll to bottom
+                chatMessages3.scrollTop = chatMessages.scrollHeight;
+            }
+
+
+            function showTypingIndicator() {
+                typingIndicator.style.display = 'block';
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+
+            function hideTypingIndicator() {
+                typingIndicator.style.display = 'none';
+            }
+            
+           
+            // Function to load credentials from credentials.json
+                async function loadCredentials() {
+                    try {
+                        const response = await fetch('credentials.json'); // Update the path as needed
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        const credentials = await response.json();
+                        return credentials;
+                    } catch (error) {
+                        console.error('Error loading credentials:', error);
+                        return null;
+                    }
+                }
+            
+
+        let openai_api_key = "";
+        let mistral_api_key = "";
+           
+    //       Function to use the credentials
+    async function useCredentials() {
+        const credentials = await loadCredentials();
+        if (credentials) {
+        openai_api_key = credentials.openai_api_key;
+        mistral_api_key = credentials.mistral_api_key;
+
+        // Now you can use openai_api_key and mistral_key in your API requests
+        console.log('OpenAI API Keys:', openai_api_key);
+        console.log('Mistral API Keys:', mistral_api_key);      
+        console.log('toto ', credentials.toto)
+        }  
+     }
+
+// Call the function to use the credentials
+    useCredentials();
+
+      async function sendMessage() {
+                const message = chatInput.value.trim();
+                if (!message) return;
+
+                // Add user message to chat
+                addMessage(message, true);
+                //chatInput.value = '';
+                // Show typing indicator
+                //showTypingIndicator();
+                    try {
+                    const response = await fetch("https://api.openai.com/v1/responses", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${openai_api_key}`
+                    },
+                    body: JSON.stringify({
+                        "model": "gpt-4.1",
+                        "input": message
+                    })
+                    });
+
+                    const title1 = document.getElementById("title1")
+                    title1.innerText= "gpt-4.1"
+
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+
+                    const data = await response.json();
+
+                    // Hide typing indicator
+                    //hideTypingIndicator2();
+
+                    // Add bot response to chat - using the output field from the response
+                    if (data && data.output) {
+                        addMessage(data.output[0].content[0].text, false, data["date/time"]);
+                    } else {
+                        addMessage("I received your message but couldn't process a response.", false);
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    //hideTypingIndicator();
+                    addMessage("Sorry, there was an error communicating with the server openai.", false);
+                }
+            }
+
+            //send2
+            async function sendMessage2() {
+                const message = chatInput.value.trim();
+                if (!message) return;
+
+                // Add user message to chat
+                addMessage2(message, true);
+                //chatInput.value = '';
+                // Show typing indicator
+                //showTypingIndicator();
+                    try {
+                    const response = await fetch("https://api.openai.com/v1/responses", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${openai_api_key}`
+                    },
+                    body: JSON.stringify({
+                        "model": "o3-mini",
+                        "input": message
+                    })
+                    });
+
+                    const title = document.getElementById("title2")
+                    title.innerText= "o3-mini"
+
+
+
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+
+                    const data = await response.json();
+
+                    // Hide typing indicator
+                    //hideTypingIndicator2();
+
+                    const messageObject = data.output.find(item => item.type === "message");
+                    const textAnswer = messageObject?.content[0]?.text;
+
+
+                    // Add bot response to chat - using the output field from the response
+                    if (data && data.output) {
+                        //inital way data.output[0].content[0].text
+                        const messageObject = data.output.find(item => item.type === "message");
+                        const textAnswer = messageObject?.content[0]?.text;
+                        addMessage2(textAnswer, false, data["date/time"]);
+                    } else {
+                        addMessage2("I received your message but couldn't process a response.", false);
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    //hideTypingIndicator();
+                    addMessage2("Sorry, there was an error communicating with the server openai.", false);
+                }
+            }
+
+
+
+            //send3
+            async function sendMessage3() {
+                const message = chatInput.value.trim();
+                if (!message) return;
+                addMessage3(message, true);
+                //chatInput.value = ''; //we cannot remove before all functions are treated
+                // Show typing indicator
+                //showTypingIndicator3();
+                try {
+                   
+                    const response = await fetch("https://api.mistral.ai/v1/chat/completions", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${mistral_api_key}`
+                    },
+                    body: JSON.stringify({
+                        "model": "mistral-large-latest",
+                        "messages": [
+                                    {
+                                        "role": "user",
+                                        "content": message
+                                    }
+                                ]
+                    })
+                    });
+
+                    const title = document.getElementById("title3")
+                    title.innerText= "mistral-large-latest"
+
+
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    const data = await response.json();
+                    // Hide typing indicator
+                    //hideTypingIndicator();
+
+                    /// {"id":"d1b8fb9c80b94543ade05e6cb00b408e","object":"chat.completion","created":1746022279,"model":"mistral-large-latest","choices":[{"index":0,"message":{"role":"assistant","tool_calls":null,"content":"The sum of 1 + 1 is 2. Here it is:\n\n 1\n+1\n____\n 2"},"finish_reason":"stop"}],"usage":{"prom
+
+                    // Add bot response to chat - using the output field from the response
+                    if (data && data.choices) {
+                        console.log(data.choices[0].message.content);
+                        addMessage3(data.choices[0].message.content, false, data["date/time"]);
+                    } else {
+                        addMessage3("I received your message but couldn't process a response.", false);
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    //hideTypingIndicator();
+                    addMessage3("Sorry, there was an error communicating with the server openai.", false);
+                }
+            }
+        
+
+
+        // Event listeners
+        sendButton.addEventListener('click', function () {
+                            sendMessage3(event);
+                            sendMessage2(event);
+                            sendMessage(event);});
+
+            
+
+            chatInput.addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') {
+                    sendMessage();sendMessage2();
+                    sendMessage3();
+                }
+            });
+
+
+    </script>
+</body>
+</html>
